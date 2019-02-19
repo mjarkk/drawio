@@ -62,35 +62,6 @@ OneDriveClient.prototype.baseUrl = 'https://graph.microsoft.com/v1.0';
  */
 OneDriveClient.prototype.emptyFn = function(){};
 
-OneDriveClient.prototype.invalidFilenameRegExs = [
-	/[~"#%\*:<>\?\/\\{\|}]/,
-	/^\.lock$/i,
-	/^CON$/i,
-	/^PRN$/i,
-	/^AUX$/i,
-	/^NUL$/i,
-	/^COM\d$/i,
-	/^LPT\d$/i,
-	/^desktop\.ini$/i,
-	/_vti_/i
-];
-
-/**
- * Check if the file/folder name is valid
- */
-OneDriveClient.prototype.isValidFilename = function(filename)
-{
-	if (filename == null || filename === '') return false;
-	
-	for (var i = 0; i < this.invalidFilenameRegExs.length; i++)
-	{
-		if (this.invalidFilenameRegExs[i].test(filename)) return false;
-	}
-	
-	return true;
-};
-
-
 /**
  * Checks if the client is authorized and calls the next step.
  */
@@ -404,7 +375,7 @@ OneDriveClient.prototype.executeRequest = function(url, success, error)
 					success(req);
 				}
 				// 400 is returns if wrong user for this file
-				else if (!failOnAuth && (req.getStatus() === 401 || req.getStatus() === 400))
+				else if (req.getStatus() === 401 || req.getStatus() === 400)
 				{
 					//Authorize again using the refresh token
 					this.authenticate(function()
@@ -590,13 +561,6 @@ OneDriveClient.prototype.renameFile = function(file, filename, success, error)
 {
 	if (file != null && filename != null)
 	{
-		if (!this.isValidFilename(filename))
-		{
-			error({message: this.invalidFilenameRegExs[0].test(filename) ?
-					mxResources.get('oneDriveCharsNotAllowed') : mxResources.get('oneDriveInvalidDeviceName')});
-			return;
-		}
-		
 		// TODO: How to force overwrite file with same name?
 		this.checkExists(file.getParentId(), filename, false, mxUtils.bind(this, function(checked)
 		{
@@ -653,13 +617,6 @@ OneDriveClient.prototype.insertLibrary = function(filename, data, success, error
  */
 OneDriveClient.prototype.insertFile = function(filename, data, success, error, asLibrary, folderId)
 {
-	if (!this.isValidFilename(filename))
-	{
-		error({message: this.invalidFilenameRegExs[0].test(filename) ?
-				mxResources.get('oneDriveCharsNotAllowed') : mxResources.get('oneDriveInvalidDeviceName')});
-		return;
-	}
-
 	asLibrary = (asLibrary != null) ? asLibrary : false;
 	
 	this.checkExists(folderId, filename, true, mxUtils.bind(this, function(checked)
@@ -673,7 +630,7 @@ OneDriveClient.prototype.insertFile = function(filename, data, success, error, a
 				folder = this.getItemURL(folderId, true);
 			}
 			
-			var url = this.baseUrl + folder + '/children/' + encodeURIComponent(filename) + '/content';
+			var url = this.baseUrl + folder + '/children/' + filename + '/content';
 			
 			this.writeFile(url, data, 'PUT', null, mxUtils.bind(this, function(meta)
 			{
@@ -709,7 +666,7 @@ OneDriveClient.prototype.checkExists = function(parentId, filename, askReplace, 
 		folder = this.getItemURL(parentId, true);
 	}
 	
-	this.executeRequest(this.baseUrl + folder + '/children/' + encodeURIComponent(filename), mxUtils.bind(this, function(req)
+	this.executeRequest(this.baseUrl + folder + '/children/' + filename, mxUtils.bind(this, function(req)
 	{
 		if (req.getStatus() == 404)
 		{
@@ -830,7 +787,7 @@ OneDriveClient.prototype.writeFile = function(url, data, method, contentType, su
 			    		
 						success(JSON.parse(req.getText()));
 					}
-					else if (!failOnAuth && req.getStatus() === 401)
+					else if (req.getStatus() === 401)
 					{
 						this.authenticate(function()
 						{
